@@ -1,21 +1,62 @@
 chessComURL = "https://api.chess.com/pub"
 
-function searchForUser(){
-    // Todo: Show Loading circle or spinner
+archives    = []
+archiveList = []
+games = []
+counter = 0
+allGames = [];
+
+function start() {
+    startFunction(getArchives, "Fetching data from chess.com");
+}
+
+function getArchives() {
     var username = document.getElementById("myInput").value;
-    var archives = JSON.parse(getArchives(username))["archives"];
-    var allGames = []
-    archives.forEach(url => {
-        var answere = JSON.parse(httpCall(url, false))["games"];
-        answere.forEach(element => {
-            if (element["time_class"] != "daily" && element["rules"] == "chess"){
-                calculateGameDuration(element);
-                deleteUnneccesaryData(element);
-                allGames.push(element);
-            }
-        })
-    });
+    archiveList = JSON.parse(downloadArchives(username))["archives"];
+    startFunction(getGames, `Downloading game archive 1 of ${archiveList.length}`);
+}
+
+function getGames() {
+    archives.push(JSON.parse(httpCall(archiveList[counter], false))["games"]);
+    counter = counter + 1
+    if (counter < archiveList.length){
+        startFunction(getGames, `Downloading game archive ${counter + 1} of ${archiveList.length}`);
+    }else {
+        counter = 0;
+        archiveList = [];
+        startFunction(processArchive, `Processing game archive ${counter + 1} of ${archives.length}`);
+    }
+}
+
+function processArchive() {
+    archives[counter].forEach(game => {
+        if (game["time_class"] != "daily" && game["rules"] == "chess"){
+            calculateGameDuration(game);
+            deleteUnneccesaryData(game);
+            allGames.push(game);
+        }
+    })
+    counter = counter + 1
     document.getElementById("ingameTime").innerHTML = Math.round(sumGameTime(allGames) / 3600);
+    document.getElementById("gamesPlayed").innerHTML = allGames.length;
+    if (counter < archives.length){
+        startFunction(processArchive, `Processing game archive ${counter + 1} of ${archives.length}`);
+    }else{
+        archives = []
+        setStatusTo("");
+    }
+}
+
+function startFunction(callback, status, args = null, delay = 10) {
+    setStatusTo(status);
+    if (args != null) {
+        callback.apply(this, args);
+    }
+    setTimeout(callback, delay)
+}
+
+function setStatusTo(status) {
+    document.getElementById("statusField").innerHTML = status;
 }
 
 function sumGameTime(games) {
@@ -26,14 +67,14 @@ function sumGameTime(games) {
     return timeInHours;
 }
 
-function getArchives(username) {
+function downloadArchives(username) {
     return httpCall(url=`${chessComURL}/player/${username}/games/archives`, async=false);
 }
 
 function httpCall(url, async) {
     var xmlHttp = new XMLHttpRequest();
-    xmlHttp.open( "GET", url, async ); // false for synchronous request
-    xmlHttp.send( null );
+    xmlHttp.open("GET", url, async ); // false for synchronous request
+    xmlHttp.send(null);
     return xmlHttp.responseText;
 }
 
