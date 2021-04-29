@@ -1,13 +1,22 @@
 chessComURL = "https://api.chess.com/pub"
 
-archives    = []
-archiveList = []
-games = []
-counter = 0
-allGames = [];
+archives    = [];
+archiveList = [];
+games       = [];
+counter     = 0;
+allGames    = [];
 
 function start() {
+    resetData();
     startFunction(getArchives, "Fetching data from chess.com");
+}
+
+function resetData() {
+    archives    = [];
+    archiveList = [];
+    games       = [];
+    counter     = 0;
+    allGames    = [];
 }
 
 function getArchives() {
