@@ -1,10 +1,8 @@
 chessComURL = "https://api.chess.com/pub"
 
-archives    = [];
-archiveList = [];
-games       = [];
-counter     = 0;
-allGames    = [];
+gameTimes = ["rapid", "bullet", "blitz"]
+gameData = {};
+counter  = 0;
 
 function start() {
     resetData();
@@ -12,68 +10,167 @@ function start() {
 }
 
 function resetData() {
-    archives    = [];
-    archiveList = [];
-    games       = [];
-    counter     = 0;
-    allGames    = [];
+    
+    gameData             = {};
+    gameData.archiveList = [];
+    gameData.archives    = [];
+    gameData.times       = {};
+    gameTimes.forEach(time => {
+        gameData.times[time] = {"win": 0, "lose": 0, "draw": 0, "time": 0, "games": []}
+    })
+    counter              = 0;
 }
 
 function getArchives() {
     var username = document.getElementById("myInput").value;
-    archiveList = JSON.parse(downloadArchives(username))["archives"];
-    startFunction(getGames, `Downloading game archive 1 of ${archiveList.length}`);
+    gameData.username = username;
+    gameData.archiveList = JSON.parse(downloadArchives(username))["archives"];
+    startFunction(getGames, `Downloading game archive 1 of ${gameData.archiveList.length}`);
 }
 
 function getGames() {
-    archives.push(JSON.parse(httpCall(archiveList[counter], false))["games"]);
+    gameData.archives.push(JSON.parse(httpCall(gameData.archiveList[counter], false))["games"]);
     counter = counter + 1
-    if (counter < archiveList.length){
-        startFunction(getGames, `Downloading game archive ${counter + 1} of ${archiveList.length}`);
+    if (counter < gameData.archiveList.length){
+        startFunction(getGames, `Downloading game archive ${counter + 1} of ${gameData.archiveList.length}`);
     }else {
         counter = 0;
-        archiveList = [];
-        startFunction(processArchive, `Processing game archive ${counter + 1} of ${archives.length}`);
+        gameData.archiveList = [];
+        startFunction(processArchive, `Processing game archive ${counter + 1} of ${gameData.archives.length}`);
     }
 }
 
 function processArchive() {
-    archives[counter].forEach(game => {
+    gameData.archives[counter].forEach(game => {
         if (game["time_class"] != "daily" && game["rules"] == "chess"){
             calculateGameDuration(game);
             deleteUnneccesaryData(game);
-            allGames.push(game);
+            gameData.times[game["time_class"]].time = gameData.times[game["time_class"]].time + game["durationSeconds"];
+            gameData.times[game["time_class"]].games.push(game);
         }
     })
     counter = counter + 1
-    document.getElementById("ingameTime").innerHTML = Math.round(sumGameTime(allGames) / 3600);
-    document.getElementById("gamesPlayed").innerHTML = allGames.length;
-    if (counter < archives.length){
-        startFunction(processArchive, `Processing game archive ${counter + 1} of ${archives.length}`);
+    document.getElementById("ingameTime").innerHTML = sumGameTime(gameData.times);
+    gamesplayed = 0;
+    Object.values(gameData.times).forEach(time => {
+        gamesplayed = gamesplayed + time["games"].length
+    })
+    document.getElementById("gamesPlayed").innerHTML = gamesplayed;
+    if (counter < gameData.archives.length){
+        startFunction(processArchive, `Processing game archive ${counter + 1} of ${gameData.archives.length}`);
     }else{
-        archives = []
+        gameData.archives = []
         setStatusTo("");
+        updatePie();
+        document.getElementById("username").innerHTML = gameData.username;
+        var ingametime = sumGameTime(gameData.times);
+        if ( ingametime > 24) {
+            document.getElementById("ingameTime").innerHTML = ingametime + `  (~ ${(ingametime/24).toFixed(2)} days)`
+        }
     }
 }
 
-function startFunction(callback, status, args = null, delay = 10) {
-    setStatusTo(status);
-    if (args != null) {
-        callback.apply(this, args);
+function updatePie() {
+    updateTimePie();
+    updateGamesPlayedPie();
+}
+
+function updateGamesPlayedPie() {
+    var ctx = document.getElementById("gamesPlayedPie");
+    var myPieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: gameTimes,
+          datasets: [{
+            data: [
+                Math.round(gameData.times[gameTimes[0]].games.length), 
+                Math.round(gameData.times[gameTimes[1]].games.length), 
+                Math.round(gameData.times[gameTimes[2]].games.length)],
+            backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc'],
+            hoverBackgroundColor: ['#2e59d9', '#17a673', '#2c9faf'],
+            hoverBorderColor: "rgba(234, 236, 244, 1)",
+          }],
+        },
+        options: {
+          maintainAspectRatio: false,
+          tooltips: {
+            backgroundColor: "rgb(255,255,255)",
+            bodyFontColor: "#858796",
+            borderColor: '#dddfeb',
+            borderWidth: 1,
+            xPadding: 15,
+            yPadding: 15,
+            displayColors: false,
+            caretPadding: 10,
+          },
+          legend: {
+            display: true
+          },
+          cutoutPercentage: 80,
+        },
+      });
+}
+
+
+function updateTimePie() {
+    var ctx = document.getElementById("timePie");
+    var myPieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: gameTimes,
+          datasets: [{
+            data: [
+                Math.round(gameData.times[gameTimes[0]].time / 3600), 
+                Math.round(gameData.times[gameTimes[1]].time / 3600), 
+                Math.round(gameData.times[gameTimes[2]].time / 3600)],
+            backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc'],
+            hoverBackgroundColor: ['#2e59d9', '#17a673', '#2c9faf'],
+            hoverBorderColor: "rgba(234, 236, 244, 1)",
+          }],
+        },
+        options: {
+          maintainAspectRatio: false,
+          tooltips: {
+            backgroundColor: "rgb(255,255,255)",
+            bodyFontColor: "#858796",
+            borderColor: '#dddfeb',
+            borderWidth: 1,
+            xPadding: 15,
+            yPadding: 15,
+            displayColors: false,
+            caretPadding: 10,
+          },
+          legend: {
+            display: true
+          },
+          cutoutPercentage: 80,
+        },
+      });
+}
+
+function isGameWon(game) {
+    if (game.black.username == gameData.username){
+        return (game.black.result == "win");
+    } else {
+        return (game.black.result != "win");
     }
-    setTimeout(callback, delay)
+}
+
+function startFunction(callback, status, delay = 10) {
+    setStatusTo(status);
+    setTimeout(callback, delay);
 }
 
 function setStatusTo(status) {
     document.getElementById("statusField").innerHTML = status;
 }
 
-function sumGameTime(games) {
-    timeInHours = 0.0
-    games.forEach(game => {
-        timeInHours = timeInHours + game["durationSeconds"]
+function sumGameTime(timeclasses) {
+    timeInSeconds = 0.0
+    Object.values(timeclasses).forEach(time => {
+        timeInSeconds = timeInSeconds + time["time"]
     })
-    return timeInHours;
+    return (timeInSeconds / 3600).toFixed(2);
 }
 
 function downloadArchives(username) {
