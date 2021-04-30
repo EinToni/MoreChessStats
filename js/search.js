@@ -24,8 +24,13 @@ function resetData() {
 function getArchives() {
     var username = document.getElementById("myInput").value;
     gameData.username = username;
-    gameData.archiveList = JSON.parse(downloadArchives(username))["archives"];
-    startFunction(getGames, `Downloading game archive 1 of ${gameData.archiveList.length}`);
+    var response = downloadArchives(username);
+    if (response == null){
+        setStatusTo("Username not found.")
+    } else {
+        gameData.archiveList = JSON.parse(response)["archives"];
+        startFunction(getGames, `Downloading game archive 1 of ${gameData.archiveList.length}`);
+    }
 }
 
 function getGames() {
@@ -181,6 +186,9 @@ function httpCall(url, async) {
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.open("GET", url, async ); // false for synchronous request
     xmlHttp.send(null);
+    if (xmlHttp.status != 200){
+        return null;
+    }
     return xmlHttp.responseText;
 }
 
@@ -204,3 +212,4 @@ function deleteUnneccesaryData(game) {
     delete game["fen"];
     delete game["url"];
 }
+
